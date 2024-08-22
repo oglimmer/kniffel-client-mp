@@ -4,7 +4,7 @@
  */
 
 export interface paths {
-    "/api/v1/game/{gameId}/roll": {
+    "/api/v1/game/{arg0}": {
         parameters: {
             query?: never;
             header?: never;
@@ -13,15 +13,30 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Re-roll the dice. Can only be called in gameState = ROLL */
-        post: operations["roll"];
+        post: operations["post_player_names"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/game/{gameId}/book": {
+    "/api/v1/game/{game_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_player_names"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/game/{game_id}/book": {
         parameters: {
             query?: never;
             header?: never;
@@ -30,7 +45,6 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Book the current dice roll under a specific category. Can only be called in gameState = BOOK */
         post: operations["book"];
         delete?: never;
         options?: never;
@@ -38,7 +52,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/game/": {
+    "/api/v1/game/{game_id}/roll": {
         parameters: {
             query?: never;
             header?: never;
@@ -47,28 +61,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /**
-         * Create a new game with a specific number of players
-         * @description The number of players must be at least 2. All player names must be different.
-         */
-        post: operations["createGame"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/game/{gameId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Provides all information for a game. Can be called at any point in time. */
-        get: operations["getGameInfo"];
-        put?: never;
-        post?: never;
+        post: operations["roll"];
         delete?: never;
         options?: never;
         head?: never;
@@ -79,109 +72,30 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        /** @description Game data model. Used for communication between client and server and returned by all endpoints */
+        BookRollRequest: {
+            bookingType: string;
+        };
+        CreateGameRequest: {
+            playerNames: string[];
+        };
+        DiceRollRequest: {
+            diceToKeep: number[];
+        };
         GameResponse: {
-            /**
-             * @description Secret game id
-             * @example 1234567890
-             */
+            availableBookingTypes: string[];
+            currentPlayerName: string;
+            diceRolls: number[];
             gameId: string;
             playerData: components["schemas"]["PlayerData"][];
-            /**
-             * @description player name whose turn it is
-             * @example john doe
-             */
-            currentPlayerName: string;
-            /**
-             * @description current state of the turn. can either be ROLL or BOOK
-             * @example BOOK
-             * @enum {string}
-             */
-            state: "ROLL" | "BOOK";
-            /**
-             * @description all booking types already used by the current player
-             * @example [
-             *       "ONES",
-             *       "TWOS"
-             *     ]
-             * @enum {array}
-             */
-            usedBookingTypes: "ONES" | "TWOS" | "THREES" | "FOURS" | "FIVES" | "SIXES" | "THREE_OF_A_KIND" | "FOUR_OF_A_KIND" | "FULL_HOUSE" | "SMALL_STRAIGHT" | "LARGE_STRAIGHT" | "CHANCE" | "KNIFFEL";
-            /**
-             * @description all booking types not used yet by the current player
-             * @example [
-             *       "ONES",
-             *       "TWOS"
-             *     ]
-             * @enum {array}
-             */
-            availableBookingTypes: "ONES" | "TWOS" | "THREES" | "FOURS" | "FIVES" | "SIXES" | "THREE_OF_A_KIND" | "FOUR_OF_A_KIND" | "FULL_HOUSE" | "SMALL_STRAIGHT" | "LARGE_STRAIGHT" | "CHANCE" | "KNIFFEL";
-            /**
-             * @description dice values rolled by the current player. Always 5 elements. Values as 6 sided dice, thus from 1 to 6
-             * @example [
-             *       1,
-             *       2,
-             *       2,
-             *       3,
-             *       6
-             *     ]
-             */
-            diceRolls: number[];
-            /**
-             * Format: int32
-             * @description Indicated the round during the ROLL state. Can be 1 or 2 as after the 2nd round, the game moved automatically into state BOOK.
-             * @example 1
-             * @enum {integer}
-             */
-            rollRound: 1 | 2;
+            /** Format: int32 */
+            rollRound: number;
+            state: string;
+            usedBookingTypes: string[];
         };
-        /** @description Player to score model */
         PlayerData: {
-            /**
-             * @description Player name. Given at game creation
-             * @example john doe
-             */
             name: string;
-            /**
-             * Format: int32
-             * @description Current total score of the player
-             * @example 30
-             */
+            /** Format: int32 */
             score: number;
-        };
-        /** @description Re-roll dice request */
-        DiceRollRequest: {
-            /**
-             * @description Dice to keep. Must be a subset of the current roll.
-             * @example [
-             *       1,
-             *       2,
-             *       3,
-             *       4,
-             *       5
-             *     ]
-             */
-            diceToKeep?: number[];
-        };
-        /** @description Book rolls into category request */
-        BookRollRequest: {
-            /**
-             * @description Booking type to book the current roll for. Must be one of the available booking types.
-             * @example ONES
-             * @enum {string}
-             */
-            bookingType?: "ONES" | "TWOS" | "THREES" | "FOURS" | "FIVES" | "SIXES" | "THREE_OF_A_KIND" | "FOUR_OF_A_KIND" | "FULL_HOUSE" | "SMALL_STRAIGHT" | "LARGE_STRAIGHT" | "CHANCE" | "KNIFFEL";
-        };
-        /** @description Game creation request */
-        CreateGameRequest: {
-            /**
-             * @description Defines the participating players. Each player name must be different and at least 2 players have to be provided
-             * @example [
-             *       "john doe",
-             *       "jane doe"
-             *     ]
-             */
-            playerNames?: string[];
         };
     };
     responses: never;
@@ -192,22 +106,42 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    roll: {
+    post_player_names: {
         parameters: {
             query?: never;
             header?: never;
-            path: {
-                gameId: string;
-            };
+            path?: never;
             cookie?: never;
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["DiceRollRequest"];
+                "application/json": components["schemas"]["CreateGameRequest"];
             };
         };
         responses: {
-            /** @description Dice rolled */
+            /** @description Create a new game */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GameResponse"];
+                };
+            };
+        };
+    };
+    get_player_names: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                game_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Retrieve a game */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -223,7 +157,8 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                gameId: string;
+                /** @description Game id to score */
+                game_id: string;
             };
             cookie?: never;
         };
@@ -233,7 +168,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Dice roll booked to category */
+            /** @description Book a dice roll to score */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -244,42 +179,22 @@ export interface operations {
             };
         };
     };
-    createGame: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateGameRequest"];
-            };
-        };
-        responses: {
-            /** @description Created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GameResponse"];
-                };
-            };
-        };
-    };
-    getGameInfo: {
+    roll: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                gameId: string;
+                game_id: string;
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DiceRollRequest"];
+            };
+        };
         responses: {
-            /** @description Game found and data returned */
+            /** @description (Re)-roll the dice */
             200: {
                 headers: {
                     [name: string]: unknown;

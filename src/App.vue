@@ -19,15 +19,20 @@ const selectedBookingType : Ref<components["schemas"]["GameResponse"]["usedBooki
 const apiServer = ref(`${__API_URL__}`);
 const myName = ref('');
 const joinGameId = ref('');
+const gameEnded = ref(false);
 
 async function createGame() {
     client = createClient<paths>({ baseUrl: apiServer.value });
-    const { data } = await client.POST("/api/v1/game/", {
+    const { data, error } = await client.POST("/api/v1/game/{arg0}", {
         body: {
             playerNames: names.value.map(n => n.name)
         }
     });
-    gameData.value = data;
+    if (error) {
+        console.error(error);
+    } else {
+        gameData.value = data;
+    }
 }
 
 async function reroll() {
@@ -38,17 +43,21 @@ async function reroll() {
                 diceToKeep.push(gameData.value.diceRolls[i]);
             }
         }
-        const { data } = await client.POST("/api/v1/game/{gameId}/roll", {
+        const { data, error } = await client.POST("/api/v1/game/{game_id}/roll", {
             params: {
                 path: {
-                    gameId: gameData.value.gameId
+                    game_id: gameData.value.gameId
                 }
             },
             body: {
                 diceToKeep
             }
         });
-        gameData.value = data;
+        if (error) {
+            console.error(error);
+        } else {
+            gameData.value = data;
+        }
         selectedBookingType.value = undefined;
         if (gameData.value) {
             for (let i = 0; i < gameData.value.diceRolls.length; i++) {
@@ -67,45 +76,64 @@ async function reroll() {
 // simple REST API call to send the booking type
 async function book() {
   if (gameData.value) {
-    const { data } = await client.POST("/api/v1/game/{gameId}/book", {
+    const { data, error } = await client.POST("/api/v1/game/{game_id}/book", {
       params: {
         path: {
-          gameId: gameData.value.gameId
+            game_id: gameData.value.gameId
         }
       },
       body: {
-        bookingType: selectedBookingType.value
+        bookingType: selectedBookingType.value?.toString() ?? ""
       }
     });
-    gameData.value = data;
+    if (error) {
+        console.error(error);
+    } else {
+        gameData.value = data;
+        if (gameData.value.state === 'ENDED') {
+            gameEnded.value = true;
+        }
+    }
     rerollSelection.value = [false, false, false, false, false];
   }
 }
 
 const joinGame = async () => {
     client = createClient<paths>({ baseUrl: apiServer.value });
-    const { data } = await client.GET(`/api/v1/game/{gameId}`, {
+    const { data, error } = await client.GET(`/api/v1/game/{game_id}`, {
         params: {
             path: {
-                gameId: joinGameId.value
+                game_id: joinGameId.value
             }
         }
     });
-    gameData.value = data;    
+    if (error) {
+        console.error(error);
+    } else {
+        gameData.value = data;
+    }
 }
 
 const reload = () => {
     setTimeout(async () => {
-        const { data } = await client.GET(`/api/v1/game/{gameId}`, {
+        const { data, error } = await client.GET(`/api/v1/game/{game_id}`, {
             params: {
                 path: {
-                    gameId: gameData.value?.gameId ?? "?"
+                    game_id: gameData.value?.gameId ?? "?"
                 }
             }
         })
-        gameData.value = data;
+        if (error) {
+            console.error(error);
+        } else {
+            gameData.value = data;
+        }
         if (gameData.value?.currentPlayerName !== myName.value) {
             reload();
+        } else {
+            if (gameData.value.state === 'ENDED') {
+                gameEnded.value = true;
+            }
         }
     }, 500)
 }
@@ -164,10 +192,13 @@ watch(() => gameData.value?.currentPlayerName, () => {
                     Player {{ ply.name }} - Score: {{ ply.score }}
                 </li>
             </ul>
-            <h1 class="mt-20">
+            <h1 class="mt-20" v-if="!gameEnded">
                 Current player: {{ gameData.currentPlayerName }}
             </h1>
-            <div v-if="gameData.currentPlayerName === myName">
+            <div v-if="gameEnded">
+                <h1>Game Ended</h1>
+            </div>
+            <div v-if="gameData.currentPlayerName === myName && !gameEnded">
                 <div v-if="gameData?.state === 'ROLL'">
                     <h3>Roll round: {{ gameData?.rollRound }}</h3>
                     <div> These types are still available:
