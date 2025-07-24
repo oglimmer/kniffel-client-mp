@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 import type { Ref } from 'vue'
 import createClient from 'openapi-fetch';
 import type { components, paths } from '@/api/v1';
@@ -144,94 +144,297 @@ watch(() => gameData.value?.currentPlayerName, () => {
     }
 })
 
+const canCreateGame = computed(() => {
+    return names.value.some(player => player.name.trim() !== '');
+});
+
 </script>
 
 <template>
-    <div v-if="!gameData?.gameId">
-        <h1>API Server</h1>
-        <select v-model="apiServer">
-            <option>https://api-kniffel.oglimmer.com</option>
-            <option>https://api-rust-kniffel.oglimmer.com</option>
-            <option>http://localhost:8080</option>
+  <div class="game-container animate-fadeIn">
+    <!-- Game Setup Screen -->
+    <div v-if="!gameData?.gameId" class="animate-slideIn">
+      <div class="game-header">
+        <h1>🎲 Kniffel Game</h1>
+        <p class="text-lg text-soft">Welcome to the ultimate dice game experience</p>
+      </div>
+
+      <div class="form-group">
+        <label for="api-server">Choose API Server:</label>
+        <select id="api-server" v-model="apiServer" class="select">
+          <option>https://api-kniffel.oglimmer.com</option>
+          <option>https://api-rust-kniffel.oglimmer.com</option>
+          <option>http://localhost:8080</option>
         </select>
-        <br/><br/>
-        <table border="1" cellpadding="0" cellspacing="0">
-            <tr>
-                <td>
-                    <h1>Create New Game</h1>
-                    <ul>
-                        <li v-for="ply in names" :key="ply.index">
-                            Player {{ ply.index+1 }}'s name: <input type="text" v-model="ply.name" />
-                        </li>
-                    </ul>
-                    <button @click="names.push({index: names.length, name: ''})">Add Name</button> &nbsp;
-                    <button @click="createGame">Create Game</button>
-                </td>
-                <td>
-                    <div style="padding:20px">
-                        <h1>Join Existing Game</h1>
-                        Game-ID: <input v-model="joinGameId"><br />
-                        <button @click="joinGame">Join Game</button>
-                    </div>
-                </td>
-            </tr>
-        </table>
-    </div>
-    <div v-if="gameData?.gameId">
-        <div v-if="!myName">
-            <h1>Pick your player name</h1>
-            <select v-model="myName">
-                <option v-for="ply in gameData?.playerData" :key="ply.name">{{ ply.name }}</option>
-            </select>
-        </div>
-        <div v-if="myName">
-            <h1>Game Scores</h1>
-            for {{ gameData.gameId }}
-            <ul>
-                <li v-for="ply in gameData?.playerData" :key="ply.name">
-                    Player {{ ply.name }} - Score: {{ ply.score }}
-                </li>
+      </div>
+
+      <div class="game-setup">
+        <div class="card">
+          <h2>🆕 Create New Game</h2>
+          <div class="form-group">
+            <label>Players:</label>
+            <ul class="player-list">
+              <li v-for="ply in names" :key="ply.index" class="player-item">
+                <span class="player-number">Player {{ ply.index + 1 }}:</span>
+                <input 
+                  type="text" 
+                  v-model="ply.name" 
+                  class="input" 
+                  :placeholder="`Enter player ${ply.index + 1} name`"
+                />
+              </li>
             </ul>
-            <h1 class="mt-20" v-if="!gameEnded">
-                Current player: {{ gameData.currentPlayerName }}
-            </h1>
-            <div v-if="gameEnded">
-                <h1>Game Ended</h1>
-            </div>
-            <div v-if="gameData.currentPlayerName === myName && !gameEnded">
-                <div v-if="gameData?.state === 'ROLL'">
-                    <h3>Roll round: {{ gameData?.rollRound }}</h3>
-                    <div> These types are still available:
-                        {{ gameData?.availableBookingTypes }}
-                    </div>
-                    <h3 style="margin-top: 30px;">Select the dice to keep:</h3>
-                    <ul>
-                        <li v-for="(die, idx) in gameData.diceRolls" :key="idx">
-                            {{ die }} <input type="checkbox" v-model="rerollSelection[idx]" />
-                        </li>
-                    </ul>
-                    <button @click="reroll">Roll</button>
-                </div>
-                <div v-if="gameData?.state === 'BOOK'">
-                    <h1>Final dice rolls: {{  gameData.diceRolls }}</h1>
-                    <div class="mt-20">
-                    Select the booking type:
-                    </div>
-                    <select v-model="selectedBookingType">
-                        <option v-for="cat in gameData.availableBookingTypes" :key="cat" :value="cat">{{ cat }}</option>
-                    </select>
-                    <button @click="book">Book</button>
-                </div>
-            </div>
+          </div>
+          <div class="form-row">
+            <button @click="names.push({index: names.length, name: ''})" class="btn btn-secondary">
+              ➕ Add Player
+            </button>
+            <button @click="createGame" class="btn btn-primary btn-lg" :disabled="!canCreateGame">
+              🎮 Create Game
+            </button>
+          </div>
         </div>
+
+        <div class="card">
+          <h2>🔗 Join Existing Game</h2>
+          <div class="form-group">
+            <label for="game-id">Game ID:</label>
+            <input 
+              id="game-id"
+              v-model="joinGameId" 
+              class="input" 
+              placeholder="Enter game ID"
+            />
+          </div>
+          <button @click="joinGame" class="btn btn-primary btn-lg" :disabled="!joinGameId.trim()">
+            🚪 Join Game
+          </button>
+        </div>
+      </div>
     </div>
+
+    <!-- Player Selection Screen -->
+    <div v-if="gameData?.gameId && !myName" class="game-board animate-fadeIn">
+      <div class="card">
+        <h2>👤 Select Your Player</h2>
+        <div class="form-group">
+          <label for="player-select">Choose your player name:</label>
+          <select id="player-select" v-model="myName" class="select">
+            <option value="">-- Select Player --</option>
+            <option v-for="ply in gameData?.playerData" :key="ply.name" :value="ply.name">
+              {{ ply.name }}
+            </option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Game Board -->
+    <div v-if="myName && gameData?.gameId" class="game-board animate-fadeIn">
+      <!-- Game Header -->
+      <div class="game-status">
+        <h2>🎯 Game {{ gameData.gameId }}</h2>
+        <div class="players-grid">
+          <div 
+            v-for="ply in gameData?.playerData" 
+            :key="ply.name" 
+            class="card"
+            :class="{ 'current-player': ply.name === gameData.currentPlayerName }"
+          >
+            <h4>{{ ply.name }}</h4>
+            <div class="badge badge-primary">{{ ply.score }} points</div>
+            <div v-if="ply.name === gameData.currentPlayerName" class="badge badge-success">
+              Current Turn
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Game Ended -->
+      <div v-if="gameEnded" class="game-ended animate-bounce">
+        <h1>🏆 Game Finished!</h1>
+        <p>Congratulations to all players!</p>
+      </div>
+
+      <!-- Current Player Turn -->
+      <div v-if="gameData.currentPlayerName === myName && !gameEnded">
+        <!-- Rolling Phase -->
+        <div v-if="gameData?.state === 'ROLL'" class="card">
+          <div class="roll-info">
+            <div class="badge badge-primary">Round {{ gameData?.rollRound }}</div>
+          </div>
+          
+          <div class="available-types">
+            <strong>Available booking types:</strong> {{ gameData?.availableBookingTypes?.join(', ') }}
+          </div>
+
+          <h3>🎲 Select dice to keep:</h3>
+          <div class="dice-grid">
+            <div 
+              v-for="(die, idx) in gameData.diceRolls" 
+              :key="idx" 
+              class="dice-item transition-all"
+              :class="{ 'dice-selected': rerollSelection[idx] }"
+              @click="rerollSelection[idx] = !rerollSelection[idx]"
+            >
+              <div class="dice-value">{{ die }}</div>
+              <input 
+                type="checkbox" 
+                v-model="rerollSelection[idx]" 
+                class="checkbox"
+                :id="`dice-${idx}`"
+              />
+              <label :for="`dice-${idx}`" class="sr-only">Keep dice {{ die }}</label>
+            </div>
+          </div>
+          
+          <button @click="reroll" class="btn btn-primary btn-lg">
+            🎲 Roll Dice
+          </button>
+        </div>
+
+        <!-- Booking Phase -->
+        <div v-if="gameData?.state === 'BOOK'" class="booking-section">
+          <h2>🎯 Final Roll!</h2>
+          <div class="final-dice">
+            <div v-for="(die, idx) in gameData.diceRolls" :key="idx" class="final-dice-value">
+              {{ die }}
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label for="booking-type">Select booking category:</label>
+            <select id="booking-type" v-model="selectedBookingType" class="select">
+              <option value="">-- Choose Category --</option>
+              <option v-for="cat in gameData.availableBookingTypes" :key="cat" :value="cat">
+                {{ cat }}
+              </option>
+            </select>
+          </div>
+          
+          <button 
+            @click="book" 
+            class="btn btn-success btn-lg" 
+            :disabled="!selectedBookingType"
+          >
+            ✅ Book Score
+          </button>
+        </div>
+      </div>
+
+      <!-- Waiting for other players -->
+      <div v-if="gameData.currentPlayerName !== myName && !gameEnded" class="card">
+        <div class="text-center">
+          <h3>⏳ Waiting for {{ gameData.currentPlayerName }}</h3>
+          <div class="animate-pulse">It's their turn to play...</div>
+        </div>
+      </div>
+    </div>
+  </div>
 </template>
 
 <style scoped>
-button,input {
-    margin: 10px;
+.text-lg {
+  font-size: 1.125rem;
+  line-height: 1.75rem;
 }
-.mt-20 {
-    margin-top: 20px;
+
+.text-soft {
+  color: var(--color-text-soft);
+}
+
+.text-center {
+  text-align: center;
+}
+
+.dice-selected {
+  border-color: var(--color-success) !important;
+  background: var(--success-50);
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-lg);
+}
+
+.dice-selected .dice-value {
+  background: var(--color-success);
+  color: var(--white);
+  animation: bounce 0.5s ease-in-out;
+}
+
+@media (prefers-color-scheme: dark) {
+  .dice-selected {
+    background: var(--success-900);
+  }
+}
+
+/* Enhanced dice animations */
+.dice-item {
+  cursor: pointer;
+  position: relative;
+}
+
+.dice-item input[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.dice-item:hover {
+  transform: translateY(-2px) scale(1.02);
+}
+
+.dice-item:active {
+  transform: translateY(0) scale(0.98);
+}
+
+/* Loading states */
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+/* Game status enhancements */
+.current-player {
+  animation: pulse 2s infinite;
+  border-color: var(--color-primary) !important;
+}
+
+.current-player .badge-success {
+  animation: bounce 1s infinite;
+}
+
+/* Responsive text sizing */
+@media (max-width: 640px) {
+  .text-lg {
+    font-size: 1rem;
+    line-height: 1.5rem;
+  }
+  
+  h1 {
+    font-size: 2rem;
+  }
+  
+  h2 {
+    font-size: 1.5rem;
+  }
+  
+  h3 {
+    font-size: 1.25rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .game-header h1 {
+    font-size: 1.75rem;
+  }
+  
+  .card {
+    padding: 1rem;
+  }
+  
+  .btn-lg {
+    padding: 0.75rem 1.5rem;
+    font-size: 0.875rem;
+  }
 }
 </style>
