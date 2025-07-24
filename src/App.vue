@@ -16,7 +16,7 @@ const gameData : Ref<components["schemas"]["GameResponse"]|undefined> = ref();
 const rerollSelection = ref([false, false, false, false, false]);
 // the booking type selected in the dropdown box
 const selectedBookingType : Ref<components["schemas"]["GameResponse"]["usedBookingTypes"]|undefined> = ref();
-const apiServer = ref(`${__API_URL__}`);
+const apiServer = ref('https://api-rust-kniffel.oglimmer.com');
 const myName = ref('');
 const joinGameId = ref('');
 const gameEnded = ref(false);
